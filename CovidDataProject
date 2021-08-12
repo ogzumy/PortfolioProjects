@@ -1,0 +1,79 @@
+select location, date, total_cases, new_cases, total_deaths, population
+from `heroic-habitat-321213.covid_project.covid_deaths`
+order by 1,2
+
+-- Looking at total cases vs. total deaths
+-- Shows the likelihood of dying if you contract covid in your country
+select location, date, total_cases, total_deaths,(total_deaths/total_cases) * 100 as death_rate
+from `heroic-habitat-321213.covid_project.covid_deaths`
+where location = 'United States'
+order by 1,2
+
+--Total cases vs total population
+-- Shows what percentage of population got covid
+select location, date, total_cases, population,(total_cases/population) * 100 as covid_rate
+from `heroic-habitat-321213.covid_project.covid_deaths`
+order by 1,2
+
+--Countries with highest infection rate compared to population
+
+select location, population, max(total_cases) as highest_infection_count, max((total_cases/population)) * 100 as infection_rate
+from `heroic-habitat-321213.covid_project.covid_deaths`
+group by location, population
+order by infection_rate desc
+
+--Showing the countries with the highest death count per population
+
+select location, max(total_deaths) as total_death_count
+from `heroic-habitat-321213.covid_project.covid_deaths`
+where continent is not null 
+group by location
+order by total_death_count desc 
+
+-- Now breaking it down by continent
+-- Showing the highest deaths per continent
+
+select location, max(total_deaths) as total_death_count
+from `heroic-habitat-321213.covid_project.covid_deaths`
+where continent is null 
+group by location
+order by total_death_count desc 
+
+--Global Numbers
+
+select date, sum(new_cases) as golbal_cases, sum(new_deaths) as global_deaths, sum(new_deaths)/sum(new_cases) * 100 as global_deaths_percentage
+from `heroic-habitat-321213.covid_project.covid_deaths`
+where continent is not null
+group by date
+order by 1,2
+
+
+--Total population vs. vaccinations
+begin 
+drop table if exists percent_population_vaccinated
+create temp table percent_population_vaccinated
+
+(
+    continent string,
+    location string,
+    date date,
+    population numeric,
+    new_vaccinations numeric,
+    rolling_people_vaccinated numeric
+);
+END
+
+insert into `heroic-habitat-321213._script54d9283d8b5e3714036344e2c8f6aeb196a386c8.percent_population_vaccinated`
+ select dea.continent, dea.location, dea.date, dea.population,vac.new_vaccinations, 
+    sum(vac.new_vaccinations) over (partition by dea.location order by dea.location,dea.date) as rolling_people_vaccinated,
+from `heroic-habitat-321213.covid_project.covid_deaths` dea
+join `heroic-habitat-321213.covid_project.covid_vaccinations` vac
+    on dea.location = vac.location
+    and dea.date = vac.date
+where dea.continent is not null 
+order by dea.date,dea.location
+
+Select *, (rolling_people_vaccinated/Population)*100 as percent_population_vaccinated
+From `heroic-habitat-321213._script54d9283d8b5e3714036344e2c8f6aeb196a386c8.percent_population_vaccinated`
+order by 2,3
+
